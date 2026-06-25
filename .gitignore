@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.env
+*.safetensors
+models/**/*
+!models/**/
+!models/**/modeling_*.py
+eval/outputs/
+outputs/

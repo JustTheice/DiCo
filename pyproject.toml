@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dllm-research"
+version = "0.1.0"
+description = "Research code for diffusion large language model decoding."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.7",
+    "transformers>=4.57",
+    "numpy>=2.0",
+    "datasets>=4.6",
+    "tqdm>=4.67",
+    "safetensors>=0.7",
+    "sentencepiece>=0.2",
+    "protobuf>=7.0",
+]
+
+[project.optional-dependencies]
+eval = [
+    "accelerate>=0.34",
+    "lm_eval>=0.4.11",
+]
+math = [
+    "math-verify>=0.9",
+    "sympy>=1.14",
+    "antlr4-python3-runtime==4.11.*",
+]
+dev = [
+    "ipykernel",
+    "jupyter",
+]
+
+[tool.setuptools.packages.find]
+include = ["dllm*", "eval*"]
