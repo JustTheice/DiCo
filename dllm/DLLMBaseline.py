@@ -141,7 +141,6 @@ class DLLMBaseline(DLLM):
             x0 = step.x0
             confidences = step.token_confidence
 
-            # 解码策略
             effective_mask = block_mask & mask_token_mask
             transfer_mask, used_fallback = self._build_transfer_mask(
                 confidences,
@@ -151,7 +150,6 @@ class DLLMBaseline(DLLM):
             if used_fallback:
                 fallback_steps.append(metric_recorder.accumulated_steps)
 
-            # 更新信息
             x[transfer_mask] = x0[transfer_mask]
             cache_session.on_tokens_updated(x, transfer_mask)
             mask_token_mask = (x == config.mask_id)
@@ -183,81 +181,8 @@ class DLLMBaseline(DLLM):
             state_trace_recorder.on_generate_end()
             state_trace_recorder.record['fallback_steps'] = fallback_steps
 
-        # 把steps_hidden_states存到本地文件
-        # np.save(f'exp/output/hidden_states_baseline.npy', np.array(steps_hidden_states))
-
         return GenerateOutput(
             out=x,
             state_trace=state_trace_recorder.record,
             metrics=metric_recorder.record,
         )
-
-
-def main():
-    # set_seed(1234)
-    device = 'cuda:5'
-
-    # gsm8k prompt
-    gsm8k_dataset = load_dataset('openai/gsm8k', 'main')
-    questions = gsm8k_dataset['test']['question'][0:3]
-
-    # use llada
-    # model_path = "/home/anyilin/works/dllm-research/models/LLaDA-8B-Instruct"
-    # # model_path = "/home/xiangzhong_ayl/dllm/works/dllm-research/models/LLaDA-8B-Instruct"
-    # # model_path = "/root/autodl-tmp/dllm-research/models/LLaDA-8B-Instruct"
-    # mask_id = 126336
-
-    # dream
-    model_path = "/home/anyilin/works/dllm-research/models/Dream-7B-Instruct"
-    mask_id=151666
-    # 如果需要改默认超参数，可显式传入 BaselineConfig(...)
-
-    prompt_prefix = ""
-
-    gen_length = 128
-    block_length = 128
-    sampler = DLLMBaseline.build(
-        model_path=model_path,
-        device=device,
-        torch_dtype=torch.bfloat16,
-        mask_id=mask_id,
-        config=BaselineConfig(
-            decoding_method='fixed', confidence_threshold=0.9, k=1, entropy_bound_gamma=0.1
-        ),
-        # cache_backend=DKVCacheBackend(mode="prefix-decode", cache_reloading_step=32),
-        # cache_backend=FastDLLMCacheBackend(mode="prefix")
-    )
-    tokenizer = sampler.tokenizer
-    
-    for i, raw_query in enumerate(questions):
-        prompt_text = prompt_prefix + raw_query
-        print('=' * 20 + f" Generating prompt_idx: {i} " + '=' * 20)
-        print(f"Prompt_{i}: {prompt_text}\n")
-
-        m = [{"role": "user", "content": prompt_text}]
-        prompt_text = tokenizer.apply_chat_template(m, add_generation_prompt=True, tokenize=False)
-        input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
-
-        # state_trace
-        OUT = sampler.generate(
-            prompt=input_ids, 
-            gen_length=gen_length, 
-            max_steps=gen_length, 
-            block_length=block_length,
-            raw_queries=[raw_query],
-            records=['metrics']
-        )
-        out = OUT.out
-        ans = tokenizer.batch_decode(out[:, input_ids.shape[1]:], skip_special_tokens=True)[0]
-        
-        print(f"Prompt_{i}'s answer: {ans}\n")
-        print(f"Generation Metrics: {OUT.metrics}\n")
-        # print(f"hidden_states shape: {OUT.state_trace['hidden_states_all'].shape}\n")
-        # print(f"attentions shape: {OUT.state_trace['attentions_all'].shape}\n")
-
-    #     # 将hidden states保存到本地文件
-    #     # np.save(f'exp/huashan2/rawdata/hidden_states_gsm8k_pmt{i}.npy', OUT.state_trace['hidden_states_all'])
-
-
-if __name__ == '__main__':
-    main()

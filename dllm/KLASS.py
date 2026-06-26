@@ -140,7 +140,6 @@ class KLASS(DLLMBaseline):
             x0 = step.x0
             confidences = step.token_confidence
 
-            # KLASS 在当前 block 内维护一份局部分布历史，只用它来判定哪些位置已经稳定。
             # (B, block_length, vocab_size)
             p_curr_block = F.softmax(step.logits[:, block_start:block_end, :].to(torch.float64), dim=-1)
             if p_prev_block is None:
@@ -158,7 +157,6 @@ class KLASS(DLLMBaseline):
             kl_history_block[..., -1] = kl_current_prev
             p_prev_block = p_curr_block.clone()
 
-            # 只有历史窗口填满后，才允许某个 token 因“持续低 KL”而被判成 stable。
             if block_klass_step >= config.kl_history_length - 1:
                 stable_mask_block = torch.all(kl_history_block < config.kl_threshold, dim=-1)
             else:
@@ -167,7 +165,6 @@ class KLASS(DLLMBaseline):
             stable_mask[:, block_start:block_end] = stable_mask_block
             reliable_mask = effective_mask & stable_mask
 
-            # 先只在 reliable 集合里用现有 decoding strategy 选 token。
             transfer_mask, used_fallback = self._build_transfer_mask(
                 confidences,
                 reliable_mask,
@@ -175,7 +172,6 @@ class KLASS(DLLMBaseline):
                 enable_fallback=False,
             )
 
-            # 若 reliable 集合下一个都没选出来，再退回到当前 block 的有效位置做 top-1 fallback。
             if not transfer_mask.any():
                 effective_confidences = confidences.masked_fill(~effective_mask, -torch.inf)
                 transfer_mask = torch.zeros_like(effective_mask, dtype=torch.bool, device=effective_mask.device)
@@ -221,63 +217,3 @@ class KLASS(DLLMBaseline):
             metrics=metric_recorder.record,
         )
 
-
-def main():
-    # set_seed(1234)
-    device = "cuda:5"
-
-    gsm8k_dataset = load_dataset("openai/gsm8k", "main")
-    questions = gsm8k_dataset["test"]["question"][0:3]
-
-    model_path = "/home/anyilin/works/dllm-research/models/LLaDA-8B-Instruct"
-    mask_id = 126336
-
-    # model_path = "/home/anyilin/works/dllm-research/models/Dream-7B-Instruct"
-    # mask_id = 151666
-
-    prompt_prefix = Path("prompts/gsm8k_1shot.txt").read_text(encoding="utf-8")
-
-    gen_length = 256
-    block_length = 64
-    sampler = KLASS.build(
-        model_path=model_path,
-        device=device,
-        torch_dtype=torch.bfloat16,
-        mask_id=mask_id,
-        config=KLASSConfig(
-            decoding_method="fixed",
-            confidence_threshold=0.9,
-            k=1,
-            entropy_bound_gamma=0.1,
-            kl_threshold=0.01,
-            kl_history_length=2,
-        ),
-    )
-    tokenizer = sampler.tokenizer
-
-    for i, raw_query in enumerate(questions):
-        prompt_text = prompt_prefix + raw_query
-        print("=" * 20 + f" Generating prompt_idx: {i} " + "=" * 20)
-        print(f"Prompt_{i}: {prompt_text}\n")
-
-        m = [{"role": "user", "content": prompt_text}]
-        prompt_text = tokenizer.apply_chat_template(m, add_generation_prompt=True, tokenize=False)
-        input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
-
-        out = sampler.generate(
-            prompt=input_ids,
-            gen_length=gen_length,
-            max_steps=gen_length,
-            block_length=block_length,
-            raw_queries=[raw_query],
-            records=["metrics"],
-        )
-        ans = tokenizer.batch_decode(out.out[:, input_ids.shape[1]:], skip_special_tokens=True)[0]
-
-        print(f"Prompt_{i}'s answer: {ans}\n")
-        print(f"Generation Metrics: {out.metrics}\n")
-
-
-if __name__ == "__main__":
-    set_seed(1234)
-    main()

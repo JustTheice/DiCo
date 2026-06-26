@@ -335,10 +335,8 @@ class BaseEvalHarness(LM):
 
     def __del__(self):
         """
-        析构函数，在评估任务结束、对象被销毁时自动调用。
-        用于聚合所有自定义指标并写入JSON文件。
+        gather results on all GPUs and generate a report.
         """
-        # 仅在主进程上执行聚合和写入操作，避免多GPU时重复写入
         overall_metrics: List[GenerationMetrics] = []
         if self.accelerator is not None:
             print(f"[Info] Collecting recorder......")

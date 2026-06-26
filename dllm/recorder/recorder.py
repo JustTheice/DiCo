@@ -16,7 +16,6 @@ class CallbackTemplate:
 
 
 class MetricRecorder(CallbackTemplate):
-    """专门负责计算 TPS, SRR, Time 等性能指标"""
 
     def __init__(self):
         self.start_time = 0
@@ -34,7 +33,6 @@ class MetricRecorder(CallbackTemplate):
         end_time = time.perf_counter()
         duration = end_time - self.start_time
 
-        # 这里的 GenerationMetrics 定义和你原代码一致
         self.record = GenerationMetrics(
             use_seconds=duration,
             use_steps=self.accumulated_steps,
@@ -46,7 +44,6 @@ class MetricRecorder(CallbackTemplate):
 
 
 class StateTraceRecorder(CallbackTemplate):
-    """专门负责记录中间状态，用于可视化 (原代码中 append 到 outputs/confidences 的逻辑)"""
 
     def __init__(self):
         self.prompt_len = 0
@@ -82,13 +79,11 @@ class StateTraceRecorder(CallbackTemplate):
             self.attentions_all.append(np_attn)
 
     def on_generate_end(self, gen_length=0, keep_prompt=False, **kwargs):
-        # 若gen_length >= 内部属性的长度，则将内部属性的长度拓展到gen_length，新的部分用pad填充
         pad_id = 0
         for i in range(len(self.outputs_all)):
             curr_len = self.outputs_all[i].shape[0]
             if curr_len < self.prompt_len + gen_length:
                 pad_len = self.prompt_len + gen_length - curr_len
-                # 在第一个维度上，前面pad 0个，后面pad pad_len个，pad的值为constant_values
                 self.outputs_all[i] = np.pad(self.outputs_all[i], (0, pad_len), constant_values=pad_id)
                 self.confidences_all[i] = np.pad(self.confidences_all[i], (0, pad_len), constant_values=0.0)
                 self.transfer_masks_all[i] = np.pad(self.transfer_masks_all[i], (0, pad_len), constant_values=False)
@@ -101,11 +96,7 @@ class StateTraceRecorder(CallbackTemplate):
                 self.transfer_masks_all[i] = self.transfer_masks_all[i][self.prompt_len:]
                 if len(self.hidden_states_all):
                     self.hidden_states_all[i] = self.hidden_states_all[i][:, self.prompt_len:, :]
-            # self.attentions_all = [a[:, :, self.prompt_len:, :] for a in self.attentions_all]  # 注意力矩阵也要相应切掉prompt部分
         
-        # 若keep_prompt=False，则把各个内部属性:promp_len位置的去掉，且transfer_idxs中的值通通减去prompt_len
-
-        # 全部转为numpy数组返回
         self.record = {
             "prompt_len": self.prompt_len,
             "outputs_all": np.array(self.outputs_all),

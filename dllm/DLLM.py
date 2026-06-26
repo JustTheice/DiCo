@@ -42,7 +42,6 @@ class DLLMConfig:
 
 @dataclass
 class GenerationMetrics:
-    """用于存储单次生成过程的性能指标"""
     use_seconds: float
     use_steps: int
     n_gen_tokens: int
@@ -117,7 +116,6 @@ class DLLM:
 
     # Dynamic Generation Length. DAEDAL: https://doi.org/10.48550/arXiv.2508.00819
     def set_length_strategy(self, strategy):
-        """用于动态注入不同的长度策略"""
         self.length_strategy = strategy
 
     def set_cache_backend(self, backend):
@@ -185,7 +183,6 @@ class DLLM:
             config.dllm_type = 'dream'
         print(f"Loading model and tokenizer from path: {model_path}, dllm_type: {config.dllm_type}")
 
-        # get_local.activate()  # 在引入模型之前，激活装饰器
         model = AutoModel.from_pretrained(
             model_path,
             trust_remote_code=True,
@@ -395,14 +392,12 @@ class DLLM:
         logits: torch.Tensor | None = None,
         enable_fallback: bool = True,
     ) -> tuple[torch.Tensor, bool]:
-        # 共用的 token 转移策略。
         effective_confidences = confidences.masked_fill(~effective_mask, -np.inf)
         transfer_mask = torch.zeros_like(effective_mask, dtype=torch.bool, device=effective_mask.device)
         used_fallback = False
         for b in range(confidences.shape[0]):
             if self.decoding_method == "factor":
                 # Fast-dllm: https://arxiv.org/abs/2505.22618
-                # 根据 Fast-dLLM 的公式选出当前 block 中可并行确认的 token。
                 conf_b = effective_confidences[b].clone()
                 cand_mask = conf_b > 0
                 cand_idxs = torch.nonzero(cand_mask, as_tuple=False).squeeze(1)
@@ -420,7 +415,6 @@ class DLLM:
                 transfer_mask[b] = effective_confidences[b] > self.confidence_threshold
             elif self.decoding_method == "entropy_bound":
                 # EB-Sampler: https://proceedings.neurips.cc/paper_files/paper/2025/hash/510e22f4a2da5212a64f1591736e2eaf-Abstract-Conference.html
-                # 先按 confidence 排序，再用 entropy budget 决定可并行前缀长度。
                 cand_mask = effective_confidences[b] > 0
                 cand_idxs = torch.nonzero(cand_mask, as_tuple=False).squeeze(1)
                 if cand_idxs.numel() > 0:
@@ -441,7 +435,7 @@ class DLLM:
                     _, select_index = torch.topk(effective_confidences[b], k=min(self.k, n_effective))
                     transfer_mask[b, select_index] = True
 
-            # 若当前 effective_mask 里还有 mask 但上面的策略一个都没选中，则 top-1 兜底。
+            # top-1 fallback
             if enable_fallback and not transfer_mask[b].any() and effective_mask[b].any():
                 _, select_index = torch.topk(effective_confidences[b], k=1)
                 transfer_mask[b, select_index] = True

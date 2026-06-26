@@ -41,7 +41,6 @@ def get_num_transfer_tokens(mask_token_mask, steps):
 
 def decode_outputs(output_ids, tokenizer):
     """
-        解码token_ids -> tokens
         output_ids: list of steps*gen_length
     """
     decoded_outputs = [
@@ -61,7 +60,6 @@ def _precompute_positional_weights(
 ) -> torch.Tensor:
     """
         precompute a weight matrix shaped (max_steps, gen_length)
-        每一行代表一个step的权重曲线，曲线随step增加而变得平缓。
     """
     assert gen_length > 0 and max_steps > 0, "gen_length and max_steps must > 0"
     if gen_length == 1:

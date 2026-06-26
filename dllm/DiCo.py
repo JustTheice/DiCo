@@ -312,7 +312,6 @@ class DiCo(DLLM):
                 transfer_mask.scatter_(dim=1, index=seed_indices, value=True)
                 x[transfer_mask] = x0[transfer_mask]
                 cache_session.on_tokens_updated(x, transfer_mask)
-                # x.scatter_(dim=1, src=x0, index=seed_indices) 天坑！！！ scatter方法的意思是从src中顺序地选择赋入x的index位置处。index指定的是x中要被赋值的位置而不是在src中要被选择用于赋值的位置。
 
                 # condition check for early convergence
                 advance_threshold = 0.1
@@ -454,7 +453,6 @@ class DiCo(DLLM):
                 # confidence_in_active_zones = torch.where(dynamic_accel_mask, confidence, -np.inf)
 
                 # do confidence-base parallel decoding
-                # TODO: 考虑在不同区间内结合各自的密度进行更新，可以基于区间密度平均(背诵vs灵感)，也可以将密度作为置信值的一部分(熟就是熟)，或二者都(数学式)
                 total_n_para_updated = 0
                 total_n_cons_updated = 0
                 for (itv_start, itv_end) in intervals:
@@ -467,7 +465,6 @@ class DiCo(DLLM):
                     if self.acceleration_parallel_method == 'fixed':  # meaningless for Divide and Conquer
                         para_transfer_index = (confidence_in_curr_zone > self.acceleration_threshold)
                     elif self.acceleration_parallel_method == 'factor':
-                        # 使用公式: (n + 1) * (1 - c_{n}) < f 来确定最大的可并行解码n
                         para_transfer_index = torch.zeros_like(confidence_in_curr_zone, dtype=torch.bool, device=x0.device)
                         for b in range(confidence_in_curr_zone.shape[0]):
                             conf_b = confidence_in_curr_zone[b].clone()
@@ -727,7 +724,6 @@ class DiCo(DLLM):
             gen_length,
             raw_queries=raw_queries,
         )  # (b,)
-        # 向上取整到 block_length 的整数倍. 若batch inference，以最长的adjusted_gen_length为准
         n_blocks = (adjusted_gen_lengths.max().item() + block_length - 1) // block_length
         gen_length = n_blocks * block_length
         adjusted_steps = gen_length
@@ -962,13 +958,6 @@ def main():
     # dream token info
     # model_path = "../models/Dream-7B-Instruct"
     # mask_id = 151666
-
-    # prompts = [
-    #     "你知道周杰伦吗",
-    #     "请写一首关于春天的诗",
-    #     "请用Python写一个冒泡排序算法",
-    # ]
-    # 如果需要改默认超参数，可显式传入 DiCoConfig(...)
 
     sampler = DiCo.build(
         model_path=model_path,

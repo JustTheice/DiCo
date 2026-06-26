@@ -42,7 +42,6 @@ from .configuration_llada import (
     ActivationCheckpointingStrategy,
 )
 
-# 快速获取attention_map
 # from visualizer import get_local
 
 
@@ -569,11 +568,6 @@ class LLaDABlock(nn.Module):
         # Activation function.
         self.act = Activation.build(config)
         assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
-        """
-            该assert用于保证self.hidden_size为偶数
-        """
-
-        # q,k,v projection在子类中
 
         # Attention output projection.
         self.attn_out = nn.Linear(
@@ -688,15 +682,11 @@ class LLaDABlock(nn.Module):
             q: torch.Tensor,
             k: torch.Tensor,
             v: torch.Tensor,
-            attn_mask: Optional[torch.Tensor] = None,  # 保留以兼容函数签名
+            attn_mask: Optional[torch.Tensor] = None,
             dropout_p: float = 0.0,
-            is_causal: bool = False,  # 保留以兼容函数签名
+            is_causal: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        一个手动实现的 scaled dot product attention 版本，
-        它与原始函数的 GQA 逻辑兼容，并返回注意力权重矩阵以供可视化或调试。
-        """
-        # 步骤 1: 处理分组查询注意力 (GQA)，通过复制 K 和 V 的头来匹配 Q 的头。
+
         assert k.size(1) == v.size(1)
         num_kv_heads = k.size(1)
         num_q_heads = q.size(1)
@@ -705,12 +695,9 @@ class LLaDABlock(nn.Module):
             k = k.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
             v = v.repeat_interleave(num_q_heads // num_kv_heads, dim=1, output_size=num_q_heads)
 
-        # 步骤 2: 手动计算 scaled dot-product attention
         head_dim = q.size(-1)
         attention_scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(head_dim)
 
-        # 注意：您的原始函数中硬编码了 attn_mask=None 和 is_causal=False。
-        # 这个手动版本为了完美兼容，也遵循了这一设定。
         attention_weights = F.softmax(attention_scores, dim=-1)
 
         if dropout_p > 0.0:
@@ -718,7 +705,6 @@ class LLaDABlock(nn.Module):
 
         output = torch.matmul(attention_weights, v)
 
-        # 返回最终输出，注意力权重矩阵由装饰器得到
         return output, attention_weights
 
     def attention(
@@ -730,7 +716,7 @@ class LLaDABlock(nn.Module):
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
         past_cache_positions_mask: Optional[torch.Tensor] = None,
-        output_attentions: bool = False,  # 新增参数以控制是否返回注意力权重
+        output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         B, T, C = q.size()  # batch size, sequence length, d_model
         dtype = k.dtype
@@ -801,7 +787,6 @@ class LLaDABlock(nn.Module):
         # Get the attention scores.
         attn_weights = None
         if output_attentions:
-            # 调用手动实现的dot_product以获取attention_weights
             att, attn_weights = self._manually_scaled_dot_product_attention(
                 q,
                 k,
@@ -811,7 +796,6 @@ class LLaDABlock(nn.Module):
                 is_causal=False,
             )
         else:
-            # torch默认的attention采用flash attention，不返回attn_weights
             att = self._scaled_dot_product_attention(
                 q,
                 k,
@@ -894,7 +878,7 @@ class LLaDASequentialBlock(LLaDABlock):
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
         past_cache_positions_mask: Optional[torch.Tensor] = None,
-        output_attentions: bool = False,  # 新增参数以控制是否返回注意力权重
+        output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
@@ -998,7 +982,7 @@ class LLaDALlamaBlock(LLaDABlock):
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
         past_cache_positions_mask: Optional[torch.Tensor] = None,
-        output_attentions: bool = False,  # 新增参数以控制是否返回注意力权重
+        output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
@@ -1445,7 +1429,6 @@ class LLaDAModel(nn.Module):
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)
-                # 记录attn_weights
                 if output_attentions:
                     all_attentions.append(attn_weights)
         else:

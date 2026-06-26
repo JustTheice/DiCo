@@ -17,7 +17,7 @@ MASK_ID=126336
 
 MODEL_NAME=$([ "$MODEL_PATH" = "$DREAM_PATH" ] && echo "Dream" || echo "LLaDA")
 
-GPU_IDS=(0 1 2)
+GPU_IDS=(4 5 6)
 MASTER_PORT=8090
 
 # Select the evaluated tasks

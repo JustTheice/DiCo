@@ -1,8 +1,8 @@
 #!/bin/bash
 
 set -e
-export HF_ENDPOINT="${HF_ENDPOINT:-https://huggingface.co}"
-# export HF_ENDPOINT=https://huggingface.co
+# export HF_ENDPOINT="${HF_ENDPOINT:-https://huggingface.co}"
+export HF_ENDPOINT=https://huggingface.co
 export HF_ALLOW_CODE_EVAL=1
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
