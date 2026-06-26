@@ -11,21 +11,19 @@ source "$PROJECT_ROOT/common_env.sh"
 
 
 CONDA_ENV_NAME="${CONDA_ENV_NAME:-dllmfine}"
-#MODEL_PATH="$LLADA_PATH"
-#MASK_ID=126336
+MODEL_PATH="$LLADA_PATH"
+MASK_ID=126336
 
-MODEL_PATH="$DREAM_PATH"
-MASK_ID=151666
+# MODEL_PATH="$DREAM_PATH"
+# MASK_ID=151666
 
 MODEL_NAME=$([ "$MODEL_PATH" = "$DREAM_PATH" ] && echo "Dream" || echo "LLaDA")
 
-GPU_IDS=(0 1 2 3 4 5 6 7)
+GPU_IDS=(0 1 2)
 MASTER_PORT=8083
 
-# N_LIMIT=100
 
-# TASKS="gsm8k_custom"
-# INCLUDE_PATH="$PROJECT_ROOT/eval/tasks/gsm8k/"
+# Select the evaluated tasks
 
 TASKS="gsm8k"
 NUM_FEWSHOT=4
@@ -52,6 +50,12 @@ NUM_FEWSHOT=4
 
 GPU_LIST=$(IFS=,; echo "${GPU_IDS[*]}")
 NUM_GPUS=${#GPU_IDS[@]}
+
+
+# HYPERPARAMETERS for different methods
+# Vanilla: DECODING_METHOD="topk", K = 1 
+# Fast-dllm: DECODING_METHOD="fixed", CONFIDENCE_THRESHOLD = 0.95
+# EB-Sampler: DECODING_METHOD="entropy_bound", ENTROPY_BOUND_GAMMA = 0.1
 
 BATCH_SIZE=1
 MC_NUM=128
