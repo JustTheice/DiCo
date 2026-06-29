@@ -1,11 +1,13 @@
 # Divide and Conquer (DiCo): Accelerating Diffusion-Based Large Language Models via Adaptive Parallel Decoding
 
+[![arXiv](https://img.shields.io/badge/arXiv-2602.23792-red)](https://arxiv.org/abs/2602.23792)
+
 <p align="center">
   <img src="assets/DiCo_Overview.png" alt="DiCo overview" width="90%">
 </p>
-<p align="center">
+<!-- <p align="center">
   <img src="assets/overhead_breakdown_3phases.png" alt="Overhead breakdown" width="90%">
-</p>
+</p> -->
 
 ## Installation
 
